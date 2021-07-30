@@ -1,0 +1,10 @@
+main: me.appl3.partycontrol.PartyControl
+name: PartyControl
+version: '1.0'
+description: A simple plugin for any party needs.
+api-version: '1.17'
+load: POSTWORLD
+author: 0n3Appl3
+website: corruptedfilms.appl3pvp.com
+prefix: PartyControl
+commands:
