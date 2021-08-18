@@ -55,9 +55,7 @@ public class PartyControl extends JavaPlugin implements Listener {
                             ItemMeta meta = item.getItemMeta();
                             meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&b&lParty " + armourName[i] + " &7(Right-click to Wear)"));
                             item.setItemMeta(meta);
-                        }
 
-                        if (item != null) {
                             switch(armourName[i]) {
                                 case "Helmet": player.getInventory().setHelmet(getColorArmor(item, c)); break;
                                 case "Chestplate": player.getInventory().setChestplate(getColorArmor(item, c)); break;
@@ -65,6 +63,10 @@ public class PartyControl extends JavaPlugin implements Listener {
                                 case "Boots": player.getInventory().setBoots(getColorArmor(item, c)); break;
                             }
                         }
+
+                        //if (item != null) {
+
+                        //}
                     }
                 }
             }
