@@ -14,12 +14,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
-import org.bukkit.inventory.ItemFlag;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.ShapelessRecipe;
+import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
@@ -39,7 +38,8 @@ public class PartyControl extends JavaPlugin implements Listener {
 
     private double colourCycle = 0;
     private String backpackText = "&c&lBackpack &7(Right-click to Open)";
-    private String idText = "&7&oID: &6&o";
+    private String idText = "&7&oID:&6&o ";
+    private String backpackMenuText = "&0Backpack - ID:&6 ";
 
     public void onEnable() {
         loadConfigManager();
@@ -181,6 +181,40 @@ public class PartyControl extends JavaPlugin implements Listener {
         sender.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
     }
 
+    public void openBackpack(Player player, ItemStack backpack, int id) {
+        int itemPosition = 0;
+        Inventory inventory = getServer().createInventory(null, 36, ChatColor.translateAlternateColorCodes('&', backpackMenuText + id));
+
+        if (config.doesExist(id)) {
+            for (String index : config.getBackpacks().getConfigurationSection("backpacks." + id).getKeys(false)) {
+                ItemStack item = config.getBackpacks().getItemStack("backpacks." + id + "." + index);
+                inventory.setItem(itemPosition, item);
+                itemPosition++;
+            }
+        } else {
+            ItemMeta meta = backpack.getItemMeta();
+            ArrayList<String> lore = new ArrayList<>();
+            lore.add(ChatColor.translateAlternateColorCodes('&', idText + id));
+            meta.setLore(lore);
+            backpack.setItemMeta(meta);
+        }
+        player.openInventory(inventory);
+    }
+
+    public void closeBackpack(Player player, Inventory inventory, int id) {
+        ItemStack[] items = inventory.getContents();
+
+        if (config.doesExist(id))
+            config.getBackpacks().set("backpacks." + id, null);
+
+        for (int i = 0; i < items.length; i++) {
+            if (items[i] != null) {
+                config.addToBackpack(items[i], i, id);
+                config.saveBackpacks();
+            }
+        }
+    }
+
     @EventHandler
     public void onPlayerSneak(PlayerToggleSneakEvent event) {
         int partyAmourCount = 0;
@@ -215,9 +249,25 @@ public class PartyControl extends JavaPlugin implements Listener {
     // TODO: When opening inventory, get contents of inventory in config.
 
     @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+        HumanEntity player = event.getPlayer();
+        InventoryView inventory = event.getView();
+
+        // Interact with the inventory as normal if item has no meta data or does not exist.
+        if (inventory == null) { return; }
+
+        if (inventory.getTitle().contains(ChatColor.translateAlternateColorCodes('&', backpackMenuText))) {
+            int id = Integer.parseInt(inventory.getTitle().replace(ChatColor.translateAlternateColorCodes('&', backpackMenuText), ""));
+            closeBackpack((Player) player, inventory.getTopInventory(), id);
+        }
+    }
+
+    @EventHandler
     public void onInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
+
+        if (item == null) return;
 
         if (item.getType() == Material.PLAYER_HEAD) {
             if (item.hasItemMeta() && item.getItemMeta().getDisplayName().equals(ChatColor.translateAlternateColorCodes('&', backpackText))) {
@@ -229,15 +279,16 @@ public class PartyControl extends JavaPlugin implements Listener {
                 if (lore != null) {
                     for (int i = 0; i < lore.size(); i++) {
                         if (lore.get(i).contains(ChatColor.translateAlternateColorCodes('&', idText))) {
-                            String id = lore.get(i).replace(idText, "");
-                            for (int j = 0; j < config.getNumberOfBackpacks(); j++) {
-                                if (Integer.parseInt(id) == j);
-                                    // Open backpack inventory.
-                            }
+                            String id = lore.get(i).replace(ChatColor.translateAlternateColorCodes('&', idText), "");
+                            //for (int j = 0; j < config.getNumberOfBackpacks(); j++) {
+                            //    if (Integer.parseInt(id) == j);
+                                    openBackpack(player, item, Integer.parseInt(id));
+                            //}
                         }
                     }
                 } else {
                     // Create new backpack inventory.
+                    openBackpack(player, item, config.getNumberOfBackpacks() + 1);
                 }
             }
         }

@@ -8,6 +8,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -87,6 +88,10 @@ public class ConfigManager {
 		} catch (Exception e) { }
 		return 0;
 	}
+
+	public boolean doesExist(int id) { return getBackpacks().isSet("backpacks." + id); }
+
+	public void addToBackpack(ItemStack item, int index, int id) { getBackpacks().set("backpacks." + id + "." + index, item); }
 	
 	// Other Functions
 	
