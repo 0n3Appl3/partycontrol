@@ -1,13 +1,21 @@
 package me.appl3.partycontrol;
 
+import com.mojang.authlib.GameProfile;
+import com.mojang.authlib.properties.Property;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.*;
+import org.bukkit.block.Block;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.inventory.PrepareAnvilEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -15,25 +23,34 @@ import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import javax.naming.Name;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.UUID;
 
 public class PartyControl extends JavaPlugin implements Listener {
+    private ConfigManager config;
 
     private final Material[] armourPiece = { Material.LEATHER_HELMET, Material.LEATHER_CHESTPLATE, Material.LEATHER_LEGGINGS, Material.LEATHER_BOOTS };
     private final String[] armourName = { "Helmet", "Chestplate", "Leggings", "Boots" };
 
     private double colourCycle = 0;
+    private String backpackText = "&c&lBackpack &7(Right-click to Open)";
+    private String idText = "&7&oID: &6&o";
 
     public void onEnable() {
+        loadConfigManager();
+
         Bukkit.getServer().getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', "&7> &aPartyControl has been Enabled!"));
         Bukkit.getPluginManager().registerEvents(this, this);
 
         for (int i = 0; i < armourPiece.length; i++) {
             Bukkit.removeRecipe(new NamespacedKey(this, armourName[i]));
         }
+        Bukkit.removeRecipe(new NamespacedKey(this, "Backpack"));
 
         Bukkit.getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
             @Override
@@ -90,6 +107,37 @@ public class PartyControl extends JavaPlugin implements Listener {
 
             this.getServer().addRecipe(recipe);
         }
+
+        // Backpack Recipes
+        ItemStack backpack = new ItemStack(Material.PLAYER_HEAD, 1);
+        SkullMeta meta = (SkullMeta) backpack.getItemMeta();
+
+        GameProfile profile = new GameProfile(UUID.randomUUID(), null);
+        profile.getProperties().put("textures", new Property("textures", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZDA4N2M2NWQ3YmRlNjY1YjZlMTk1ZThkY2ZjMjFmNGFkZGNmOTJhOTA3MTQwYzM3ZDQ3NGMxMmFjY2Y3YWIifX19"));
+        Field field;
+
+        try {
+            field = meta.getClass().getDeclaredField("profile");
+            field.setAccessible(true);
+            field.set(meta, profile);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', backpackText));
+        backpack.setItemMeta(meta);
+
+        ShapelessRecipe recipe = new ShapelessRecipe(new NamespacedKey(this, "Backpack"), backpack);
+        recipe.addIngredient(Material.CHEST);
+        recipe.addIngredient(8, Material.LEATHER);
+
+        this.getServer().addRecipe(recipe);
+    }
+
+    public void loadConfigManager() {
+        config = new ConfigManager();
+        config.setup();
+        config.saveBackpacks();
+        config.reloadBackpacks();
     }
 
     private ItemStack getColorArmor(ItemStack m, Color c) {
@@ -128,6 +176,11 @@ public class PartyControl extends JavaPlugin implements Listener {
         firework.setFireworkMeta(meta);
     }
 
+    // Converts ampersands into symbols used for color coding.
+    public void sendMessage(CommandSender sender, String message) {
+        sender.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+    }
+
     @EventHandler
     public void onPlayerSneak(PlayerToggleSneakEvent event) {
         int partyAmourCount = 0;
@@ -153,6 +206,39 @@ public class PartyControl extends JavaPlugin implements Listener {
                 spawnFirework(player);
                 String message = ChatColor.translateAlternateColorCodes('&', "&c&lHAPPY 6 YEARS!");
                 player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(message));
+            }
+        }
+    }
+
+    // TODO: Create backpack inventory in config.
+    // TODO: When closing inventory, update contents of inventory in config.
+    // TODO: When opening inventory, get contents of inventory in config.
+
+    @EventHandler
+    public void onInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        ItemStack item = event.getItem();
+
+        if (item.getType() == Material.PLAYER_HEAD) {
+            if (item.hasItemMeta() && item.getItemMeta().getDisplayName().equals(ChatColor.translateAlternateColorCodes('&', backpackText))) {
+                event.setCancelled(true);
+
+                ArrayList<String> lore = new ArrayList<>();
+                lore = (ArrayList<String>) item.getItemMeta().getLore();
+
+                if (lore != null) {
+                    for (int i = 0; i < lore.size(); i++) {
+                        if (lore.get(i).contains(ChatColor.translateAlternateColorCodes('&', idText))) {
+                            String id = lore.get(i).replace(idText, "");
+                            for (int j = 0; j < config.getNumberOfBackpacks(); j++) {
+                                if (Integer.parseInt(id) == j);
+                                    // Open backpack inventory.
+                            }
+                        }
+                    }
+                } else {
+                    // Create new backpack inventory.
+                }
             }
         }
     }
