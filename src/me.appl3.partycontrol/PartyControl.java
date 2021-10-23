@@ -13,6 +13,7 @@ import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
@@ -126,9 +127,12 @@ public class PartyControl extends JavaPlugin implements Listener {
         meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', backpackText));
         backpack.setItemMeta(meta);
 
-        ShapelessRecipe recipe = new ShapelessRecipe(new NamespacedKey(this, "Backpack"), backpack);
-        recipe.addIngredient(Material.CHEST);
-        recipe.addIngredient(8, Material.LEATHER);
+        ShapedRecipe recipe = new ShapedRecipe(new NamespacedKey(this, "Backpack"), backpack);
+        recipe.shape("###",
+                     "#$#",
+                     "###");
+        recipe.setIngredient('$', Material.CHEST);
+        recipe.setIngredient('#', Material.LEATHER);
 
         this.getServer().addRecipe(recipe);
     }
@@ -186,11 +190,13 @@ public class PartyControl extends JavaPlugin implements Listener {
         Inventory inventory = getServer().createInventory(null, 36, ChatColor.translateAlternateColorCodes('&', backpackMenuText + id));
 
         if (config.doesExist(id)) {
-            for (String index : config.getBackpacks().getConfigurationSection("backpacks." + id).getKeys(false)) {
-                ItemStack item = config.getBackpacks().getItemStack("backpacks." + id + "." + index);
-                inventory.setItem(itemPosition, item);
-                itemPosition++;
-            }
+            try {
+                for (String index : config.getBackpacks().getConfigurationSection("backpacks." + id).getKeys(false)) {
+                    ItemStack item = config.getBackpacks().getItemStack("backpacks." + id + "." + index);
+                    inventory.setItem(itemPosition, item);
+                    itemPosition++;
+                }
+            } catch (Exception ex) { }
         } else {
             ItemMeta meta = backpack.getItemMeta();
             ArrayList<String> lore = new ArrayList<>();
@@ -199,20 +205,22 @@ public class PartyControl extends JavaPlugin implements Listener {
             backpack.setItemMeta(meta);
         }
         player.openInventory(inventory);
+        player.playSound(player.getLocation(), Sound.BLOCK_BARREL_OPEN, 2F, 1F);
     }
 
     public void closeBackpack(Player player, Inventory inventory, int id) {
         ItemStack[] items = inventory.getContents();
 
         if (config.doesExist(id))
-            config.getBackpacks().set("backpacks." + id, null);
+            config.getBackpacks().set("backpacks." + id, "");
 
         for (int i = 0; i < items.length; i++) {
             if (items[i] != null) {
                 config.addToBackpack(items[i], i, id);
-                config.saveBackpacks();
             }
         }
+        config.saveBackpacks();
+        player.playSound(player.getLocation(), Sound.BLOCK_BARREL_CLOSE, 2F, 1F);
     }
 
     @EventHandler
@@ -244,10 +252,6 @@ public class PartyControl extends JavaPlugin implements Listener {
         }
     }
 
-    // TODO: Create backpack inventory in config.
-    // TODO: When closing inventory, update contents of inventory in config.
-    // TODO: When opening inventory, get contents of inventory in config.
-
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
         HumanEntity player = event.getPlayer();
@@ -269,7 +273,7 @@ public class PartyControl extends JavaPlugin implements Listener {
 
         if (item == null) return;
 
-        if (item.getType() == Material.PLAYER_HEAD) {
+        if (item.getType() == Material.PLAYER_HEAD && (event.getAction().equals(Action.RIGHT_CLICK_AIR) || event.getAction().equals(Action.RIGHT_CLICK_BLOCK))) {
             if (item.hasItemMeta() && item.getItemMeta().getDisplayName().equals(ChatColor.translateAlternateColorCodes('&', backpackText))) {
                 event.setCancelled(true);
 
@@ -280,10 +284,7 @@ public class PartyControl extends JavaPlugin implements Listener {
                     for (int i = 0; i < lore.size(); i++) {
                         if (lore.get(i).contains(ChatColor.translateAlternateColorCodes('&', idText))) {
                             String id = lore.get(i).replace(ChatColor.translateAlternateColorCodes('&', idText), "");
-                            //for (int j = 0; j < config.getNumberOfBackpacks(); j++) {
-                            //    if (Integer.parseInt(id) == j);
-                                    openBackpack(player, item, Integer.parseInt(id));
-                            //}
+                            openBackpack(player, item, Integer.parseInt(id));
                         }
                     }
                 } else {
